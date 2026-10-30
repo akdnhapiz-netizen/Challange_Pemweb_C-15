@@ -1,19 +1,27 @@
 import { Request, Response } from 'express';
 import prisma from '../prisma';
+import { validateUser } from '../utils/validate';
 
 export const createUser = async (req: Request, res: Response) => {
   try {
-    const { email, name, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+    const errors = validateUser(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ message: 'Validasi gagal', errors });
     }
+
+    const { email, name, password } = req.body;
 
     const user = await prisma.user.create({
       data: {
         email,
         name,
         password,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
       },
     });
 

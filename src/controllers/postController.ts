@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../prisma';
+import { validatePosts } from '../utils/validate';
 
 export const createPost = async (req: Request, res: Response) => {
   try {
@@ -115,6 +116,36 @@ export const deletePost = async (req: Request, res: Response) => {
   } catch (error: any) {
     if (error.code === 'P2025') {
       return res.status(404).json({ message: 'Post not found' });
+    }
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+export const bulkCreatePosts = async (req: Request, res: Response) => {
+  try {
+    const posts = req.body;
+
+    const errors = validatePosts(posts);
+    if (errors.length > 0) {
+      return res.status(400).json({ message: 'Validasi gagal', errors });
+    }
+
+    const result = await prisma.post.createMany({
+      data: posts.map((post: any) => ({
+        title: post.title,
+        content: post.content,
+        published: Boolean(post.published),
+        authorId: Number(post.authorId),
+      })),
+    });
+
+    return res.status(201).json({
+      message: `${result.count} post berhasil dibuat`,
+      count: result.count,
+    });
+  } catch (error: any) {
+    if (error.code === 'P2003') {
+      return res.status(404).json({ message: 'Ada authorId yang tidak terdaftar' });
     }
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }

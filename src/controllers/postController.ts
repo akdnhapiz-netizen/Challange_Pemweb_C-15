@@ -150,3 +150,18 @@ export const bulkCreatePosts = async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
+
+export const getDailyStats = async (req: Request, res: Response) => {
+  try {
+    const stats = await prisma.$queryRaw<{ day: Date; total: number }[]>`
+      SELECT date_trunc('day', "createdAt") AS day, COUNT(*)::int AS total
+      FROM "Post"
+      GROUP BY day
+      ORDER BY day ASC
+    `;
+
+    return res.status(200).json(stats);
+  } catch (error: any) {
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};

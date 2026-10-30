@@ -92,3 +92,52 @@ export const deleteUser = async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
+
+export const getUserPosts = async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
+
+    const { published } = req.query;
+    if (published !== undefined && published !== 'true' && published !== 'false') {
+      return res.status(400).json({ message: "published must be 'true' or 'false'" });
+    }
+
+    const where = {
+      authorId: id,
+      ...(published !== undefined && { published: published === 'true' }),
+    };
+
+    const [posts, total] = await prisma.$transaction([
+      prisma.post.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.post.count({ where }),
+    ]);
+
+    return res.status(200).json({
+      data: posts,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
